@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <!-- favicon -->
+  <link rel="icon" href="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8f/YouTube_social_white_circle_%282024%29.svg/240px-YouTube_social_white_circle_%282024%29.svg.png">
+  <title>YT Puzzle 2</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font: inherit;
+    }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      background-color: black;
+    }
+    .container {
+      width: 100%;
+    }
+    .hidden {
+      display: none !important;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(4rem, 1fr)); 
+      gap: 1em; 
+      width: 100%;
+    }
+    .grid button {
+      font-size: 3rem;
+      font-weight: bolder;
+      width: 4rem;
+      height: 4rem;
+    }
+    .divider {
+      margin-block: 3rem;
+    }
+    #puzzleGrid {
+      width: 100%;
+      padding: 3em;
+    }
+
+    #spoken {
+      color: wheat;
+      opacity: 0.05;
+    }
+    #startButton {
+      padding: 1em;
+    }
+    #startButton img {
+      border: 3px solid black;
+      border-radius: 50%;
+      height: 8em;
+    }
+    #button-A, #button-0 {
+      grid-column: 1;
+    }
+    .wrong-button {
+      background-color: #DE1A24;
+    }
+    .right-button {
+      background-color: #FFE963;
+      box-shadow: 0px 0px 10px #FFE963;
+    }
+  </style>
+  <script>
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    const correctAnswer = characters.charAt(Math.floor(Math.random() * characters.length))
+    const correctAnswers = [...characters.split('').sort(() => 0.5 - Math.random()).slice(0, 2)]
+    localStorage.removeItem('clickedChars');
+
+    function speakWrite(utt) {
+      speechSynthesis.speak(utt)
+      document.getElementById('spoken').innerText = utt.text
+    }
+
+    function startPuzzle() {
+      document.getElementById('startButton').classList.add('hidden')
+      document.getElementById('puzzleGrid').classList.remove('hidden')
+      document.documentElement.requestFullscreen()
+      generatePuzzle()
+    }
+
+    function generatePuzzle() {
+      const utt = new SpeechSynthesisUtterance('Please click: ' + correctAnswers[0] + ', and, ' + correctAnswers[1])
+      speakWrite(utt)
+    }
+
+    function deactivateButtons() {
+      document.querySelectorAll('.grid button').forEach(button => {
+        button.disabled = true
+      })
+    }
+
+    function activateButtons() {
+      document.querySelectorAll('.grid button').forEach(button => {
+        button.disabled = false
+      })
+    }
+
+    function checkAnswer(event) {
+      deactivateButtons()
+      if (event.target.innerText === correctAnswers[0] || event.target.innerText === correctAnswers[1]) {
+        event.target.classList.add('right-button')
+        const utt1 = new SpeechSynthesisUtterance('Correct. You got ' + event.target.innerText + ' right!')
+        let clickedChars = JSON.parse(localStorage.getItem('clickedChars')) || [];
+        utt1.onend = () => {
+          if (clickedChars.length === correctAnswers.length - 1) {
+            const uttLast = new SpeechSynthesisUtterance('Good job!') 
+            uttLast.onend = () => {
+              window.location.href = 'https://www.youtube.com'
+            }
+            speakWrite(uttLast)
+          } else {
+            activateButtons()
+            clickedChars.push(event.target.innerText);
+            localStorage.setItem('clickedChars', JSON.stringify(clickedChars));
+          }
+        }
+        speakWrite(utt1)
+      } else {
+        event.target.classList.add('wrong-button')
+        const utt2 = new SpeechSynthesisUtterance('You clicked ' + event.target.innerText + ', That is incorrect.')
+        utt2.onend = () => {
+          generatePuzzle()
+          setTimeout(activateButtons, 1500)
+        }
+        speakWrite(utt2)
+      }
+    }
+
+  </script>
+</head>
+<body>
+  <span id="startButton" onclick="startPuzzle()"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8f/YouTube_social_white_circle_%282024%29.svg/240px-YouTube_social_white_circle_%282024%29.svg.png"></span>
+  <div id="spoken"></div>
+  <div id="puzzleGrid" class="hidden container">
+    <div class="letters grid">
+      <script>
+        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        for (let char of letters) {
+          document.write(`<button id="button-${char}" onclick="checkAnswer(event)">` + char + '</button>')
+        }
+      </script>
+    </div>
+    <div class="divider"></div>
+    <div class="numbers grid">
+      <script>
+        const numbers = '0123456789'
+        for (let char of numbers) {
+          document.write(`<button id="button-${char}" onclick="checkAnswer(event)">` + char + '</button>')
+        }
+      </script>
+    </div>
+  </div>
+</body>
+</html>
