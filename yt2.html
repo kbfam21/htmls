@@ -78,46 +78,89 @@
     const correctAnswers = [...characters.split('').sort(() => 0.5 - Math.random()).slice(0, 2)]
     localStorage.removeItem('clickedChars');
 
-    function speakWrite(utt) {
+    function speakWrite(str, func = null) {
+      const utt = new SpeechSynthesisUtterance(str) 
+      if (func) utt.onend = func
       speechSynthesis.speak(utt)
-      document.getElementById('spoken').innerText = utt.text
+      document.getElementById('spoken').innerText = str
     }
 
     function startPuzzle() {
       document.getElementById('startButton').classList.add('hidden')
       document.getElementById('puzzleGrid').classList.remove('hidden')
       document.documentElement.requestFullscreen()
+      localStorage.removeItem('foundAnswers');
       generatePuzzle()
     }
 
     function generatePuzzle() {
-      const utt = new SpeechSynthesisUtterance('Please click: ' + correctAnswers[0] + ', and, ' + correctAnswers[1])
+      const utt = 'Please click: ' + correctAnswers[0] + ', and, ' + correctAnswers[1]
       speakWrite(utt)
     }
 
     function deactivateButtons() {
-      document.querySelectorAll('.grid button').forEach(button => {
+      document.querySelectorAll('.grid .not-clicked').forEach(button => {
         button.disabled = true
       })
     }
 
     function activateButtons() {
-      document.querySelectorAll('.grid button').forEach(button => {
+      document.querySelectorAll('.grid .not-clicked').forEach(button => {
         button.disabled = false
       })
     }
 
     function checkAnswer(event) {
       deactivateButtons()
-      if (event.target.innerText === correctAnswers[0] || event.target.innerText === correctAnswers[1]) {
+      const foundAnswers = JSON.parse(localStorage.getItem('foundAnswers')) || [];
+      const clickedButton = event.target;
+      clickedButton.classList.remove('not-clicked')
+
+      // Check if the clicked button's value is in the correct answers array
+      if (correctAnswers.includes(clickedButton.innerText)) {
+        // Store the found answer in local storage
+        clickedButton.classList.add('right-button')
+        speakWrite('Correct. You got ' + clickedButton.innerText + ' right!', () => {
+          activateButtons()
+        })
+        if (!foundAnswers.includes(clickedButton.innerText)) {
+          foundAnswers.push(clickedButton.innerText);
+        }
+        localStorage.setItem('foundAnswers', JSON.stringify(foundAnswers));
+      } else {
+        clickedButton.classList.add('wrong-button')
+        speakWrite('You clicked ' + clickedButton.innerText + ', That is incorrect.', () => {
+          generatePuzzle()
+          activateButtons()
+        })
+      }
+
+      // Check if the puzzle is solved
+      if (foundAnswers.length === correctAnswers.length) {
+        speakWrite('Puzzle Solved!', () => {
+          localStorage.removeItem('foundAnswers');
+          // new tab window.location.href = 'https://www.youtube.com'
+          window.open('https://www.youtube.com', '_blank');
+        })
+      }
+    }
+
+
+    function checkAnswer2(event) {
+      deactivateButtons()
+      // if (event.target.innerText === correctAnswers[0] || event.target.innerText === correctAnswers[1]) 
+      if (correctAnswers.includes(event.target.innerText)) {
         event.target.classList.add('right-button')
-        const utt1 = new SpeechSynthesisUtterance('Correct. You got ' + event.target.innerText + ' right!')
+        speakWrite('Correct. You got ' + event.target.innerText + ' right!')
         let clickedChars = JSON.parse(localStorage.getItem('clickedChars')) || [];
+        // remove duples in clickedChars
+        clickedChars = [...new Set(clickedChars)];
+        console.log(clickedChars);
         utt1.onend = () => {
           if (clickedChars.length === correctAnswers.length - 1) {
             const uttLast = new SpeechSynthesisUtterance('Good job!') 
             uttLast.onend = () => {
-              window.location.href = 'https://www.youtube.com'
+              // window.location.href = 'https://www.youtube.com'
             }
             speakWrite(uttLast)
           } else {
@@ -148,7 +191,7 @@
       <script>
         const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
         for (let char of letters) {
-          document.write(`<button id="button-${char}" onclick="checkAnswer(event)">` + char + '</button>')
+          document.write(`<button id="button-${char}" class="not-clicked" onclick="checkAnswer(event)">` + char + '</button>')
         }
       </script>
     </div>
@@ -157,7 +200,7 @@
       <script>
         const numbers = '0123456789'
         for (let char of numbers) {
-          document.write(`<button id="button-${char}" onclick="checkAnswer(event)">` + char + '</button>')
+          document.write(`<button id="button-${char}" class="not-clicked" onclick="checkAnswer(event)">` + char + '</button>')
         }
       </script>
     </div>
