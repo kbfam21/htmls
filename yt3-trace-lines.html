@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <title>Toddler Tracing Game</title>
+    <style>
+      body {
+        display: flex;
+        flex-direction: column; /* Allow stacking of elements */
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background-color: #f0f8ff; /* AliceBlue */
+        font-family: "Arial Rounded MT Bold", Arial, sans-serif;
+        overflow: hidden; /* Prevent scrolling on mobile */
+      }
+      #gameContainer {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        visibility: hidden; /* Initially hidden */
+      }
+      #playButton {
+        font-size: 2em;
+        padding: 20px 40px;
+        cursor: pointer;
+        background-color: #4caf50; /* Green */
+        color: white;
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        margin-bottom: 30px;
+      }
+      #playButton:hover {
+        background-color: #45a049;
+      }
+      #instructions {
+        font-size: 1.5em;
+        color: #333;
+        margin-bottom: 20px;
+      }
+      canvas {
+        border: 3px solid #0077cc; /* BrightBlue */
+        background-color: #fff;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+      #feedback {
+        margin-top: 20px;
+        font-size: 1.8em;
+        color: #28a745; /* Green for positive feedback */
+        height: 30px; /* Reserve space to prevent layout shift */
+      }
+    </style>
+  </head>
+  <body>
+    <button id="playButton">Play Game!</button>
+    <div id="gameContainer">
+      <div id="instructions">Trace the shape!</div>
+      <canvas id="drawingCanvas"></canvas>
+      <div id="feedback"></div>
+    </div>
+
+    <script>
+      const canvas = document.getElementById("drawingCanvas");
+      const ctx = canvas.getContext("2d");
+      const instructionsDiv = document.getElementById("instructions");
+      const feedbackDiv = document.getElementById("feedback");
+      const playButton = document.getElementById("playButton");
+      const gameContainer = document.getElementById("gameContainer");
+
+      let canvasWidth = Math.min(window.innerWidth * 0.9, 400);
+      let canvasHeight = Math.min(window.innerHeight * 0.6, 400);
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+
+      let drawing = false;
+      let currentShape = null;
+      let userPath = [];
+      let shapePathPoints = [];
+      let successfulShapesCount = 0;
+      let speechReady = false;
+
+      speechSynthesis.onvoiceschanged = () => {
+        speechReady = true;
+      };
+
+      const SHAPE_LINE_WIDTH = 50;
+      const TRACE_LINE_WIDTH = 10;
+      const TRACE_COLOR_GOOD = "#ff6347";
+      const TRACE_COLOR_BAD = "#ff0000";
+      const SHAPE_COLOR = "#333";
+      const COMPLETION_THRESHOLD = 0.7;
+      const PROXIMITY_THRESHOLD = 20;
+
+      const shapes = [
+        { name: "circle", drawFunc: drawCircle, getPathFunc: getCirclePath },
+        { name: "square", drawFunc: drawSquare, getPathFunc: getSquarePath },
+        {
+          name: "triangle",
+          drawFunc: drawTriangle,
+          getPathFunc: getTrianglePath,
+        },
+        { name: "line", drawFunc: drawLine, getPathFunc: getLinePath },
+        { name: "s-shape", drawFunc: drawSShape, getPathFunc: getSShapePath },
+        { name: "star", drawFunc: drawStar, getPathFunc: getStarPath },
+        {
+          name: "pentagon",
+          drawFunc: drawPentagon,
+          getPathFunc: getPentagonPath,
+        },
+      ];
+      const colors = ["#FFC0CB", "#ADD8E6", "#90EE90", "#FFD700", "#FFA07A"];
+      let currentShapeColor;
+
+      function newRand() {
+        const array = new Uint32Array(1);
+        window.crypto.getRandomValues(array);
+        const cryptoRandom = array[0] / 2 ** 32;
+
+        const timestamp = Date.now();
+        const timestampEntropy = (cryptoRandom * timestamp) % 1;
+
+        return timestampEntropy;
+      }
+
+      function speak(text) {
+        if (!speechReady && speechSynthesis.getVoices().length === 0) {
+          speechSynthesis.getVoices();
+          setTimeout(() => speak(text), 200);
+          console.log("Speech synthesis not ready, retrying...");
+          return;
+        }
+        if ("speechSynthesis" in window) {
+          const utterance = new SpeechSynthesisUtterance(text);
+
+          utterance.rate = 0.9;
+          utterance.pitch = 1.2;
+          speechSynthesis.cancel();
+          speechSynthesis.speak(utterance);
+        } else {
+          console.log("Speech synthesis not supported.");
+        }
+      }
+
+      function getRandomElement(arr) {
+        return arr[Math.floor(newRand() * arr.length)];
+      }
+
+      function setupNewShape() {
+        userPath = [];
+        shapePathPoints = [];
+        currentShape = getRandomElement(shapes);
+        currentShapeColor = getRandomElement(colors);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = currentShapeColor;
+        currentShape.drawFunc(true);
+
+        ctx.strokeStyle = SHAPE_COLOR;
+        ctx.lineWidth = SHAPE_LINE_WIDTH;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        currentShape.drawFunc(false);
+
+        shapePathPoints = currentShape.getPathFunc();
+        const instructionText = `Trace the ${currentShape.name}!`;
+        instructionsDiv.textContent = instructionText;
+        feedbackDiv.textContent = "";
+
+        if (gameContainer.style.visibility === "visible") {
+          speak(instructionText);
+        }
+      }
+
+      function drawCircle(fill = false) {
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = Math.min(canvas.width, canvas.height) / 3;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        if (fill) ctx.fill();
+        else ctx.stroke();
+      }
+
+      function drawSquare(fill = false) {
+        const size = Math.min(canvas.width, canvas.height) / 1.8;
+        const x = (canvas.width - size) / 2;
+        const y = (canvas.height - size) / 2;
+        if (fill) ctx.fillRect(x, y, size, size);
+        else ctx.strokeRect(x, y, size, size);
+      }
+
+      function drawTriangle(fill = false) {
+        const height = Math.min(canvas.width, canvas.height) / 1.5;
+        const width = height;
+        const x = canvas.width / 2;
+        const y = (canvas.height - height) / 2;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + width / 2, y + height);
+        ctx.lineTo(x - width / 2, y + height);
+        ctx.closePath();
+        if (fill) ctx.fill();
+        else ctx.stroke();
+      }
+
+      function drawLine(fill = false) {
+        const margin = canvas.width * 0.2;
+        const yPos = canvas.height / 2;
+        ctx.beginPath();
+        ctx.moveTo(margin, yPos);
+        ctx.lineTo(canvas.width - margin, yPos);
+        if (!fill) ctx.stroke();
+      }
+
+      function drawSShape(fill = false) {
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const amplitude = Math.min(canvas.width, canvas.height) / 4;
+        const length = Math.min(canvas.width, canvas.height) / 1.5;
+        ctx.beginPath();
+        ctx.moveTo(centerX - length / 2, centerY + amplitude / 2);
+        ctx.bezierCurveTo(
+          centerX - length / 4,
+          centerY + amplitude * 1.5,
+          centerX + length / 4,
+          centerY - amplitude * 1.5,
+          centerX + length / 2,
+          centerY - amplitude / 2
+        );
+        if (!fill) ctx.stroke();
+      }
+
+      function drawStar(fillMode = false) {
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const outerRadius = Math.min(canvas.width, canvas.height) / 3;
+        const innerRadius = outerRadius / 2.2;
+        const numSpikes = 5;
+        const rotationOffset = -Math.PI / 2;
+
+        ctx.beginPath();
+        for (let i = 0; i < numSpikes; i++) {
+          let xOuter =
+            centerX +
+            outerRadius *
+              Math.cos(i * ((Math.PI * 2) / numSpikes) + rotationOffset);
+          let yOuter =
+            centerY +
+            outerRadius *
+              Math.sin(i * ((Math.PI * 2) / numSpikes) + rotationOffset);
+          if (i === 0) {
+            ctx.moveTo(xOuter, yOuter);
+          } else {
+            ctx.lineTo(xOuter, yOuter);
+          }
+
+          let xInner =
+            centerX +
+            innerRadius *
+              Math.cos(
+                i * ((Math.PI * 2) / numSpikes) +
+                  Math.PI / numSpikes +
+                  rotationOffset
+              );
+          let yInner =
+            centerY +
+            innerRadius *
+              Math.sin(
+                i * ((Math.PI * 2) / numSpikes) +
+                  Math.PI / numSpikes +
+                  rotationOffset
+              );
+          ctx.lineTo(xInner, yInner);
+        }
+        ctx.closePath();
+
+        if (fillMode) {
+          ctx.fill();
+        } else {
+          ctx.stroke();
+        }
+      }
+
+      function drawPentagon(fillMode = false) {
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = Math.min(canvas.width, canvas.height) / 2.8;
+        const numSides = 5;
+        const rotationOffset = -Math.PI / 2;
+
+        ctx.beginPath();
+        for (let i = 0; i < numSides; i++) {
+          let x =
+            centerX +
+            radius * Math.cos(i * ((Math.PI * 2) / numSides) + rotationOffset);
+          let y =
+            centerY +
+            radius * Math.sin(i * ((Math.PI * 2) / numSides) + rotationOffset);
+          if (i === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        ctx.closePath();
+
+        if (fillMode) {
+          ctx.fill();
+        } else {
+          ctx.stroke();
+        }
+      }
+
+      function getCirclePath() {
+        const path = [];
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = Math.min(canvas.width, canvas.height) / 3;
+        for (let i = 0; i <= 360; i += 10) {
+          const angle = (i * Math.PI) / 180;
+          path.push({
+            x: centerX + radius * Math.cos(angle),
+            y: centerY + radius * Math.sin(angle),
+          });
+        }
+        return path;
+      }
+
+      function getSquarePath() {
+        const path = [];
+        const size = Math.min(canvas.width, canvas.height) / 1.8;
+        const x = (canvas.width - size) / 2;
+        const y = (canvas.height - size) / 2;
+        const step = 20;
+        for (let i = 0; i <= size; i += step) path.push({ x: x + i, y: y });
+        for (let i = 0; i <= size; i += step)
+          path.push({ x: x + size, y: y + i });
+        for (let i = 0; i <= size; i += step)
+          path.push({ x: x + size - i, y: y + size });
+        for (let i = 0; i <= size; i += step)
+          path.push({ x: x, y: y + size - i });
+        return path;
+      }
+
+      function getTrianglePath() {
+        const path = [];
+        const height = Math.min(canvas.width, canvas.height) / 1.5;
+        const width = height;
+        const x = canvas.width / 2;
+        const y = (canvas.height - height) / 2;
+        const p1 = { x: x, y: y };
+        const p2 = { x: x + width / 2, y: y + height };
+        const p3 = { x: x - width / 2, y: y + height };
+
+        const segments = [
+          [p1, p2],
+          [p2, p3],
+          [p3, p1],
+        ];
+        segments.forEach((seg) => {
+          for (let t = 0; t <= 1; t += 0.1) {
+            path.push({
+              x: seg[0].x * (1 - t) + seg[1].x * t,
+              y: seg[0].y * (1 - t) + seg[1].y * t,
+            });
+          }
+        });
+        return path;
+      }
+
+      function getLinePath() {
+        const path = [];
+        const margin = canvas.width * 0.2;
+        const yPos = canvas.height / 2;
+        const step = 20;
+        for (let x = margin; x <= canvas.width - margin; x += step) {
+          path.push({ x: x, y: yPos });
+        }
+        return path;
+      }
+
+      function getSShapePath() {
+        const path = [];
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const amplitude = Math.min(canvas.width, canvas.height) / 4;
+        const length = Math.min(canvas.width, canvas.height) / 1.5;
+        const p0 = { x: centerX - length / 2, y: centerY + amplitude / 2 };
+        const p1 = { x: centerX - length / 4, y: centerY + amplitude * 1.5 };
+        const p2 = { x: centerX + length / 4, y: centerY - amplitude * 1.5 };
+        const p3 = { x: centerX + length / 2, y: centerY - amplitude / 2 };
+
+        for (let t = 0; t <= 1; t += 0.05) {
+          const x =
+            Math.pow(1 - t, 3) * p0.x +
+            3 * Math.pow(1 - t, 2) * t * p1.x +
+            3 * (1 - t) * Math.pow(t, 2) * p2.x +
+            Math.pow(t, 3) * p3.x;
+          const y =
+            Math.pow(1 - t, 3) * p0.y +
+            3 * Math.pow(1 - t, 2) * t * p1.y +
+            3 * (1 - t) * Math.pow(t, 2) * p2.y +
+            Math.pow(t, 3) * p3.y;
+          path.push({ x, y });
+        }
+        return path;
+      }
+
+      function getStarPath() {
+        const path = [];
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const outerRadius = Math.min(canvas.width, canvas.height) / 3;
+        const innerRadius = outerRadius / 2.2;
+        const numSpikes = 5;
+        const rotationOffset = -Math.PI / 2;
+        const pointsPerEdge = 10;
+
+        let vertices = [];
+        for (let i = 0; i < numSpikes; i++) {
+          vertices.push({
+            x:
+              centerX +
+              outerRadius *
+                Math.cos(i * ((Math.PI * 2) / numSpikes) + rotationOffset),
+            y:
+              centerY +
+              outerRadius *
+                Math.sin(i * ((Math.PI * 2) / numSpikes) + rotationOffset),
+          });
+
+          vertices.push({
+            x:
+              centerX +
+              innerRadius *
+                Math.cos(
+                  i * ((Math.PI * 2) / numSpikes) +
+                    Math.PI / numSpikes +
+                    rotationOffset
+                ),
+            y:
+              centerY +
+              innerRadius *
+                Math.sin(
+                  i * ((Math.PI * 2) / numSpikes) +
+                    Math.PI / numSpikes +
+                    rotationOffset
+                ),
+          });
+        }
+
+        for (let i = 0; i < vertices.length; i++) {
+          let p1 = vertices[i];
+          let p2 = vertices[(i + 1) % vertices.length];
+
+          for (let t = 0; t < 1; t += 1 / pointsPerEdge) {
+            path.push({
+              x: p1.x * (1 - t) + p2.x * t,
+              y: p1.y * (1 - t) + p2.y * t,
+            });
+          }
+        }
+
+        if (
+          path.length > 0 &&
+          vertices.length > 0 &&
+          (path[path.length - 1].x !== vertices[0].x ||
+            path[path.length - 1].y !== vertices[0].y)
+        ) {
+          path.push(vertices[0]);
+        }
+        return path;
+      }
+
+      function getPentagonPath() {
+        const path = [];
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = Math.min(canvas.width, canvas.height) / 2.8;
+        const numSides = 5;
+        const rotationOffset = -Math.PI / 2;
+        const pointsPerEdge = 15;
+
+        let vertices = [];
+        for (let i = 0; i < numSides; i++) {
+          vertices.push({
+            x:
+              centerX +
+              radius *
+                Math.cos(i * ((Math.PI * 2) / numSides) + rotationOffset),
+            y:
+              centerY +
+              radius *
+                Math.sin(i * ((Math.PI * 2) / numSides) + rotationOffset),
+          });
+        }
+
+        for (let i = 0; i < vertices.length; i++) {
+          let p1 = vertices[i];
+          let p2 = vertices[(i + 1) % vertices.length];
+          for (let t = 0; t < 1; t += 1 / pointsPerEdge) {
+            path.push({
+              x: p1.x * (1 - t) + p2.x * t,
+              y: p1.y * (1 - t) + p2.y * t,
+            });
+          }
+        }
+        if (
+          path.length > 0 &&
+          vertices.length > 0 &&
+          (path[path.length - 1].x !== vertices[0].x ||
+            path[path.length - 1].y !== vertices[0].y)
+        ) {
+          path.push(vertices[0]);
+        }
+        return path;
+      }
+
+      function getMousePos(event) {
+        const rect = canvas.getBoundingClientRect();
+        let clientX, clientY;
+        if (event.touches && event.touches.length > 0) {
+          clientX = event.touches[0].clientX;
+          clientY = event.touches[0].clientY;
+        } else {
+          clientX = event.clientX;
+          clientY = event.clientY;
+        }
+        return {
+          x: clientX - rect.left,
+          y: clientY - rect.top,
+        };
+      }
+
+      function startDrawing(event) {
+        event.preventDefault();
+        drawing = true;
+        const pos = getMousePos(event);
+        userPath.push(pos);
+        drawDot(
+          pos.x,
+          pos.y,
+          isOnPath(pos) ? TRACE_COLOR_GOOD : TRACE_COLOR_BAD
+        );
+      }
+
+      function stopDrawing() {
+        if (!drawing) return;
+        drawing = false;
+        checkCompletion();
+      }
+
+      function draw(event) {
+        if (!drawing) return;
+        event.preventDefault();
+        const pos = getMousePos(event);
+        const lastPoint = userPath[userPath.length - 1];
+
+        ctx.beginPath();
+        ctx.moveTo(lastPoint.x, lastPoint.y);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.strokeStyle = isOnPath(pos) ? TRACE_COLOR_GOOD : TRACE_COLOR_BAD;
+        ctx.lineWidth = TRACE_LINE_WIDTH;
+        ctx.lineCap = "round";
+        ctx.stroke();
+
+        userPath.push(pos);
+      }
+
+      function drawDot(x, y, color) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, TRACE_LINE_WIDTH / 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      function isOnPath(point) {
+        if (!shapePathPoints || shapePathPoints.length === 0) return false;
+        for (let i = 0; i < shapePathPoints.length; i++) {
+          const dx = point.x - shapePathPoints[i].x;
+          const dy = point.y - shapePathPoints[i].y;
+          if (Math.sqrt(dx * dx + dy * dy) < PROXIMITY_THRESHOLD) {
+            if (feedbackDiv.textContent.startsWith("Oops"))
+              feedbackDiv.textContent = "";
+            return true;
+          }
+        }
+        const oopsText = "Oops, try to stay on the line!";
+        if (feedbackDiv.textContent !== oopsText) {
+          feedbackDiv.textContent = oopsText;
+          speak(oopsText);
+        }
+        setTimeout(() => {
+          if (feedbackDiv.textContent === oopsText)
+            feedbackDiv.textContent = "";
+        }, 1500);
+        return false;
+      }
+
+      function checkCompletion() {
+        if (
+          !shapePathPoints ||
+          shapePathPoints.length === 0 ||
+          userPath.length === 0
+        )
+          return;
+
+        let correctlyTracedPoints = 0;
+        let uniqueShapePointsCovered = new Set();
+
+        userPath.forEach((userPoint) => {
+          shapePathPoints.forEach((shapePoint, index) => {
+            const dx = userPoint.x - shapePoint.x;
+            const dy = userPoint.y - shapePoint.y;
+            if (Math.sqrt(dx * dx + dy * dy) < PROXIMITY_THRESHOLD) {
+              uniqueShapePointsCovered.add(index);
+            }
+          });
+        });
+
+        correctlyTracedPoints = uniqueShapePointsCovered.size;
+        const completionRatio = correctlyTracedPoints / shapePathPoints.length;
+
+        if (completionRatio >= COMPLETION_THRESHOLD) {
+          const greatJobText = "Great job!";
+          feedbackDiv.textContent = greatJobText;
+          speak(greatJobText);
+          successfulShapesCount++;
+
+          if (successfulShapesCount === 3) {
+            const levelCompleteText =
+              "Wow! Three shapes traced! You're amazing!";
+            feedbackDiv.textContent = levelCompleteText;
+            speak(levelCompleteText);
+            successfulShapesCount = 0;
+            setTimeout(() => {
+              window.open("https://www.youtube.com", "_blank");
+
+              gameContainer.style.visibility = "hidden";
+              playButton.textContent = "Play Trace Again?";
+              playButton.style.display = "block";
+            }, 3000);
+          } else {
+            setTimeout(() => {
+              setupNewShape();
+            }, 1500);
+          }
+        } else {
+          const tryAgainText = "Try again!";
+          feedbackDiv.textContent = tryAgainText;
+          speak(tryAgainText);
+
+          setTimeout(() => {
+            if (feedbackDiv.textContent === tryAgainText) {
+              userPath = [];
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              ctx.fillStyle = currentShapeColor;
+              currentShape.drawFunc(true);
+              ctx.strokeStyle = SHAPE_COLOR;
+              ctx.lineWidth = SHAPE_LINE_WIDTH;
+              currentShape.drawFunc(false);
+              feedbackDiv.textContent = "";
+            }
+          }, 1500);
+        }
+      }
+
+      canvas.addEventListener("mousedown", startDrawing);
+      canvas.addEventListener("mouseup", stopDrawing);
+      canvas.addEventListener("mousemove", draw);
+      canvas.addEventListener("mouseleave", stopDrawing);
+
+      canvas.addEventListener("touchstart", startDrawing, { passive: false });
+      canvas.addEventListener("touchend", stopDrawing, { passive: false });
+      canvas.addEventListener("touchmove", draw, { passive: false });
+
+      window.addEventListener("resize", () => {
+        if (gameContainer.style.visibility !== "visible") return;
+        canvasWidth = Math.min(window.innerWidth * 0.9, 400);
+        canvasHeight = Math.min(window.innerHeight * 0.6, 400);
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+        setupNewShape();
+      });
+
+      playButton.addEventListener("click", () => {
+        playButton.style.display = "none";
+        gameContainer.style.visibility = "visible";
+        successfulShapesCount = 0;
+
+        if (!speechReady && "speechSynthesis" in window) {
+          speechSynthesis.getVoices();
+          speechReady = true;
+        }
+        speak("Let's start tracing!");
+        setTimeout(() => {
+          setupNewShape();
+        }, 1000);
+      });
+    </script>
+  </body>
+</html>
