@@ -16,20 +16,19 @@
         align-items: center;
         height: 100vh;
         margin: 0;
-        background-color: #3f3f3f;
+        background-color: #232324;
         color: white;
         font-family: "Arial Rounded MT Bold", Arial, sans-serif;
         overflow: hidden; /* Prevent scrolling on mobile */
       }
       #gameContainer {
-        display: flex;
+        display: none;
         flex-direction: column;
         align-items: center;
-        visibility: hidden; /* Initially hidden */
       } 
       #playButton {
         cursor: pointer;
-        color: white;
+        color: #0077cc;
         border: none;
         border-radius: 10px;
         margin-bottom: 30px;
@@ -158,7 +157,7 @@
         instructionsDiv.textContent = instructionText;
         feedbackDiv.textContent = "";
 
-        if (gameContainer.style.visibility === "visible") {
+        if (gameContainer.style.display === "flex") {
           speak(instructionText);
         }
       }
@@ -628,7 +627,7 @@
             setTimeout(() => {
               window.open("https://www.youtube.com", "_blank");
 
-              gameContainer.style.visibility = "hidden";
+              gameContainer.style.display = "none";
               playButton.textContent = "Play Trace Again?";
               playButton.style.display = "block";
             }, 3000);
@@ -678,7 +677,7 @@
       playButton.addEventListener("click", () => {
         document.documentElement.requestFullscreen()
         playButton.style.display = "none";
-        gameContainer.style.visibility = "visible";
+        gameContainer.style.display = "flex";
         successfulShapesCount = 0;
 
         speechSynthesis.getVoices();
