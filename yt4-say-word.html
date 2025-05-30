@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Say the Word</title>
+    <style>
+      body {
+        font-family: "Comic Sans MS", cursive, sans-serif;
+        text-align: center;
+        background-color: #f0f8ff;
+        margin: 0;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+      }
+      .container {
+        background-color: white;
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        max-width: 600px;
+        width: 90%;
+      }
+      h1 {
+        color: #ff6b6b;
+        margin-bottom: 20px;
+      }
+      .word-display {
+        font-size: 5rem;
+        font-weight: bold;
+        color: #2d3436;
+        margin: 40px 0 50px;
+        min-height: 120px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+      
+      .feedback {
+        font-size: 1.5rem;
+        min-height: 36px;
+        margin: 15px 0 25px;
+        color: #e74c3c;
+        font-weight: bold;
+      }
+      
+      .controls {
+        margin-top: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+      }
+      
+      button {
+        padding: 15px 30px;
+        font-size: 1.2rem;
+        border: none;
+        border-radius: 50px;
+        cursor: pointer;
+        color: white;
+        font-weight: bold;
+        transition: all 0.3s;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        width: 80%;
+        max-width: 250px;
+        position: relative;
+        overflow: hidden;
+      }
+      
+      button:active {
+        transform: translateY(2px);
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+      
+      .hidden {
+        display: none;
+      }
+      
+      #startButton {
+        position: absolute;
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
+        border: none;
+        color: white;
+        font-size: 1.2rem;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        transition: all 0.3s ease;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 20px;
+      }
+      
+      #startButton:hover {
+        transform: scale(1.05);
+        box-shadow: 0 15px 30px rgba(0,0,0,0.25);
+      }
+      
+      #startButton.hidden {
+        opacity: 0;
+        transform: scale(0.5) translateY(20px);
+        pointer-events: none;
+      }
+      
+      #startButton:hover {
+        background: linear-gradient(45deg, #ff5252, #ff7675);
+      }
+      
+      #recordButton {
+        background: linear-gradient(45deg, #4facfe, #00f2fe);
+        position: relative;
+        overflow: hidden;
+      }
+      
+      #recordButton.recording {
+        background: linear-gradient(45deg, #ff416c, #ff4b2b);
+        animation: pulse 1.5s infinite;
+      }
+      
+      #recordButton.recording:after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        right: -50%;
+        bottom: -50%;
+        background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
+        transform: scale(0);
+        animation: ripple 1.5s infinite;
+      }
+      
+      #nextButton {
+        background: linear-gradient(45deg, #43e97b, #38f9d7);
+        color: #2d3436;
+      }
+      
+      #nextButton:hover {
+        background: linear-gradient(45deg, #3fe38a, #2dd4bf);
+      }
+      
+      .listening-indicator {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin: 15px 0;
+        height: 40px;
+        align-items: flex-end;
+      }
+      
+      .bar {
+        width: 6px;
+        height: 10px;
+        background: #4facfe;
+        border-radius: 3px;
+        animation: equalize 1.5s infinite ease-in-out;
+      }
+      
+      .bar:nth-child(1) { animation-delay: 0.1s; }
+      .bar:nth-child(2) { animation-delay: 0.2s; height: 20px; }
+      .bar:nth-child(3) { animation-delay: 0.3s; height: 30px; }
+      .bar:nth-child(4) { animation-delay: 0.2s; height: 20px; }
+      .bar:nth-child(5) { animation-delay: 0.1s; }
+      
+      @keyframes equalize {
+        0%, 100% { height: 10px; }
+        50% { height: 30px; }
+      }
+      
+      @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(0.98); }
+        100% { transform: scale(1); }
+      }
+      
+      @keyframes ripple {
+        to { transform: scale(4); opacity: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <button id="startButton">Start<br>Game</button>
+    
+    <div class="container">
+      <div class="card game-content">
+        <div class="word-display" id="wordDisplay">Ready?</div>
+        
+        <div class="listening-indicator hidden" id="listeningIndicator">
+          <div class="bar"></div>
+          <div class="bar"></div>
+          <div class="bar"></div>
+          <div class="bar"></div>
+          <div class="bar"></div>
+        </div>
+        
+        <div class="feedback" id="feedback"></div>
+
+        <div class="controls">
+          <div class="speech-controls hidden" id="speechControls">
+            <button id="recordButton" type="button">🎤 Tap & Hold to Speak</button>
+            <button id="nextButton" class="hidden">Next Word ➔</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // List of simple words for children to read
+      const words = [
+        "hi",
+        "hello",
+        "dog",
+        "cat",
+        "ball"
+      ];
+
+      // Game variables
+      let currentWord = "";
+      let score = 0;
+      let recognition;
+      let gameStarted = false;
+      let isListening = false;
+      let touchTimer;
+
+      // DOM elements
+      const wordDisplay = document.getElementById("wordDisplay");
+      const feedback = document.getElementById("feedback");
+      const scoreValue = document.getElementById("scoreValue");
+      const startButton = document.getElementById("startButton");
+      const speechControls = document.getElementById("speechControls");
+      const recordButton = document.getElementById("recordButton");
+      const nextButton = document.getElementById("nextButton");
+
+      // Check if browser supports speech recognition
+      if ("webkitSpeechRecognition" in window) {
+        recognition = new webkitSpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = "en-US";
+
+        recognition.onresult = function (event) {
+          const transcript = event.results[0][0].transcript
+            .toLowerCase()
+            .trim();
+          checkWord(transcript);
+        };
+
+        recognition.onerror = function (event) {
+          console.error("Speech recognition error", event.error);
+          feedback.textContent = "I couldn't hear you. Try again!";
+          feedback.className = "feedback";
+        };
+
+        recognition.onend = function () {
+          recordButton.disabled = false;
+        };
+      } else {
+        // Browser doesn't support speech recognition
+        wordDisplay.textContent =
+          "Your browser doesn't support speech recognition.";
+        startButton.disabled = true;
+      }
+
+      // Start the game
+      startButton.addEventListener("click", () => {
+        gameStarted = true;
+        startButton.classList.add("hidden");
+        
+        // Show game content with animation
+        setTimeout(() => {
+          document.querySelector('.game-content').classList.add('visible');
+          speechControls.classList.remove("hidden");
+          nextWord();
+        }, 300);
+      });
+
+      // Touch/mouse events for record button
+      recordButton.addEventListener('mousedown', startRecognition);
+      recordButton.addEventListener('touchstart', startRecognition);
+      
+      recordButton.addEventListener('mouseup', stopRecognition);
+      recordButton.addEventListener('mouseleave', stopRecognition);
+      recordButton.addEventListener('touchend', stopRecognition);
+
+      // Next button click handler
+      nextButton.addEventListener("click", () => {
+        nextWord();
+        nextButton.classList.add("hidden");
+        recordButton.textContent = "🎤 Tap & Hold to Speak";
+        feedback.textContent = "";
+        document.getElementById('listeningIndicator').classList.add('hidden');
+      });
+
+      // Start speech recognition
+      function startRecognition(e) {
+        if (e) e.preventDefault();
+        if (!recognition || isListening) return;
+        
+        isListening = true;
+        recognition.start();
+        recordButton.classList.add('recording');
+        recordButton.textContent = "🎤 Listening...";
+        document.getElementById('listeningIndicator').classList.remove('hidden');
+        console.log("Listening...");
+        
+        // Auto-stop after 5 seconds if still listening
+        touchTimer = setTimeout(() => {
+          if (isListening) stopRecognition();
+        }, 5000);
+      }
+      
+      // Stop speech recognition
+      function stopRecognition(e) {
+        if (e) e.preventDefault();
+        if (!isListening) return;
+        
+        clearTimeout(touchTimer);
+        isListening = false;
+        if (recognition) recognition.stop();
+        recordButton.classList.remove('recording');
+        document.getElementById('listeningIndicator').classList.add('hidden');
+        
+        if (!nextButton.classList.contains('hidden')) {
+          recordButton.textContent = "🎤 Tap & Hold to Speak";
+        }
+      }
+
+      // Get the next word
+      function nextWord() {
+        // Remove the current word from the array to avoid repeats
+        const availableWords = words.filter(word => word !== currentWord);
+        const randomIndex = Math.floor(Math.random() * availableWords.length);
+        currentWord = availableWords[randomIndex];
+        
+        // Animate the word display
+        wordDisplay.style.animation = 'none';
+        wordDisplay.offsetHeight; // Trigger reflow
+        wordDisplay.style.animation = 'fadeIn 0.5s ease-out';
+        
+        wordDisplay.textContent = currentWord;
+        
+        // Reset button states
+        recordButton.textContent = "🎤 Hold";
+        recordButton.disabled = false;
+      }
+
+      // Check if the spoken word matches the current word
+      function checkWord(spokenWord) {
+        stopRecognition();
+        
+        // Simple check for word match (allows for minor mispronunciations)
+        const normalizedSpoken = spokenWord.toLowerCase().trim();
+        const normalizedCurrent = currentWord.toLowerCase().trim();
+        
+        if (normalizedSpoken === normalizedCurrent || 
+            normalizedSpoken.includes(normalizedCurrent) || 
+            normalizedCurrent.includes(normalizedSpoken)) {
+          feedback.textContent = "Great job! 🎉";
+          feedback.style.color = "#2ecc71";
+          score++;
+          scoreValue.textContent = score;
+          
+          // Auto-advance after a short delay
+          setTimeout(() => {
+            if (nextButton && !nextButton.classList.contains('hidden')) {
+              nextButton.click();
+            }
+          }, 1500);
+        } else {
+          feedback.textContent = `You said: "${spokenWord}"`;
+          feedback.style.color = "#e74c3c";
+          recordButton.textContent = "🎤 Try Again";
+        }
+
+        nextButton.classList.remove("hidden");
+      }
+    </script>
+  </body>
+</html>

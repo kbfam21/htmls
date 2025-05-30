@@ -92,12 +92,12 @@
 
       const shapes = [
         { name: "circle", drawFunc: drawCircle, getPathFunc: getCirclePath },
-        // { name: "square", drawFunc: drawSquare, getPathFunc: getSquarePath },
+        { name: "square", drawFunc: drawSquare, getPathFunc: getSquarePath },
         { name: "triangle", drawFunc: drawTriangle, getPathFunc: getTrianglePath },
         { name: "line", drawFunc: drawLine, getPathFunc: getLinePath },
         { name: "s-shape", drawFunc: drawSShape, getPathFunc: getSShapePath },
         // { name: "star", drawFunc: drawStar, getPathFunc: getStarPath },
-        // { name: "pentagon", drawFunc: drawPentagon, getPathFunc: getPentagonPath },
+        { name: "pentagon", drawFunc: drawPentagon, getPathFunc: getPentagonPath },
       ];
       const colors = ["#FFC0CB", "#ADD8E6", "#90EE90", "#FFD700", "#FFA07A"];
       let currentShapeColor;
@@ -613,14 +613,14 @@
         const completionRatio = correctlyTracedPoints / shapePathPoints.length;
 
         if (completionRatio >= COMPLETION_THRESHOLD) {
-          const greatJobText = "Great job!";
+          const greatJobText = "Great!";
           feedbackDiv.textContent = greatJobText;
           speak(greatJobText);
           successfulShapesCount++;
 
           if (successfulShapesCount === 3) {
             const levelCompleteText =
-              "You did it! Good Job!";
+              "You did it!";
             feedbackDiv.textContent = levelCompleteText;
             speak(levelCompleteText);
             successfulShapesCount = 0;
